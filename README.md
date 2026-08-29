@@ -31,7 +31,7 @@ Credit goes to [Michael Zang](https://github.com/michaelzangl) for the original 
 ## Extra Showcase
 VIDEO:
 [CE v1.3](https://youtu.be/iK6PLwxdkgQ)
-CallenFlynn
+by [CallenFlynn](https://github.com/callenflynn/)
 
 
 ## Todo
