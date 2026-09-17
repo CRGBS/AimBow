@@ -237,75 +237,92 @@ public class AimbowGui {
     }
 
     private void drawEntityTint(EntityLivingBase targetEntity, float partialTicks) {
-        Entity viewer = Minecraft.getMinecraft().getRenderViewEntity();
-        double viewerX = viewer.lastTickPosX + (viewer.posX - viewer.lastTickPosX) * partialTicks;
-        double viewerY = viewer.lastTickPosY + (viewer.posY - viewer.lastTickPosY) * partialTicks;
-        double viewerZ = viewer.lastTickPosZ + (viewer.posZ - viewer.lastTickPosZ) * partialTicks;
-
-        GlStateManager.pushMatrix();
-        GlStateManager.enableBlend();
-        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
-        GlStateManager.disableTexture2D();
-        GlStateManager.depthMask(false);
-
-        Tessellator tessellator = Tessellator.getInstance();
-        WorldRenderer worldrenderer = tessellator.getWorldRenderer();
-
-        // Get entity's bounding box for tint visualization
-        double x = targetEntity.lastTickPosX + (targetEntity.posX - targetEntity.lastTickPosX) * partialTicks - viewerX;
-        double y = targetEntity.lastTickPosY + (targetEntity.posY - targetEntity.lastTickPosY) * partialTicks - viewerY;
-        double z = targetEntity.lastTickPosZ + (targetEntity.posZ - targetEntity.lastTickPosZ) * partialTicks - viewerZ;
-
-        // Get the entity's bounding box dimensions
-        AxisAlignedBB entityBox = targetEntity.getEntityBoundingBox();
-        double width = (entityBox.maxX - entityBox.minX) / 2;
-        double height = entityBox.maxY - entityBox.minY;
-
-        AxisAlignedBB box = new AxisAlignedBB(
-                x - width, y, z - width,
-                x + width, y + height, z + width
-        );
-
-        // Draw red tinted box around player
-        worldrenderer.begin(GL11.GL_LINE_STRIP, DefaultVertexFormats.POSITION_COLOR);
+        try {
+            Entity viewer = Minecraft.getMinecraft().getRenderViewEntity();
+            double viewerX = viewer.lastTickPosX + (viewer.posX - viewer.lastTickPosX) * partialTicks;
+            double viewerY = viewer.lastTickPosY + (viewer.posY - viewer.lastTickPosY) * partialTicks;
+            double viewerZ = viewer.lastTickPosZ + (viewer.posZ - viewer.lastTickPosZ) * partialTicks;
+    
+            GlStateManager.pushMatrix();
+            GlStateManager.enableBlend();
+            GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
+            GlStateManager.disableTexture2D();
+            GlStateManager.depthMask(false);
+    
+            Tessellator tessellator = Tessellator.getInstance();
+            WorldRenderer worldrenderer = tessellator.getWorldRenderer();
+    
+            // Get entity's bounding box for tint visualization
+            double x = targetEntity.lastTickPosX + (targetEntity.posX - targetEntity.lastTickPosX) * partialTicks - viewerX;
+            double y = targetEntity.lastTickPosY + (targetEntity.posY - targetEntity.lastTickPosY) * partialTicks - viewerY;
+            double z = targetEntity.lastTickPosZ + (targetEntity.posZ - targetEntity.lastTickPosZ) * partialTicks - viewerZ;
+    
+            // Get the entity's bounding box dimensions
+            AxisAlignedBB entityBox = targetEntity.getEntityBoundingBox();
+            double width = (entityBox.maxX - entityBox.minX) / 2;
+            double height = entityBox.maxY - entityBox.minY;
+    
+            AxisAlignedBB box = new AxisAlignedBB(
+                    x - width, y, z - width,
+                    x + width, y + height, z + width
+            );
+    
+            // Draw red tinted box around player
+            worldrenderer.begin(GL11.GL_LINE_STRIP, DefaultVertexFormats.POSITION_COLOR);
+            
+            float r = 1.0f;
+            float g = 0.0f;
+            float b = 0.0f;
+            float a = 0.8f;
+    
+            // Draw outline of player bounding box in red
+            worldrenderer.pos(box.minX, box.minY, box.minZ).color(r, g, b, a).endVertex();
+            worldrenderer.pos(box.maxX, box.minY, box.minZ).color(r, g, b, a).endVertex();
+            worldrenderer.pos(box.maxX, box.minY, box.maxZ).color(r, g, b, a).endVertex();
+            worldrenderer.pos(box.minX, box.minY, box.maxZ).color(r, g, b, a).endVertex();
+            worldrenderer.pos(box.minX, box.minY, box.minZ).color(r, g, b, a).endVertex();
+    
+            worldrenderer.pos(box.minX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
+            worldrenderer.pos(box.maxX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
+            worldrenderer.pos(box.maxX, box.maxY, box.maxZ).color(r, g, b, a).endVertex();
+            worldrenderer.pos(box.minX, box.maxY, box.maxZ).color(r, g, b, a).endVertex();
+            worldrenderer.pos(box.minX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
+    
+            worldrenderer.pos(box.minX, box.minY, box.minZ).color(r, g, b, a).endVertex();
+            worldrenderer.pos(box.minX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
+    
+            worldrenderer.pos(box.maxX, box.minY, box.minZ).color(r, g, b, a).endVertex();
+            worldrenderer.pos(box.maxX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
+    
+            worldrenderer.pos(box.maxX, box.minY, box.maxZ).color(r, g, b, a).endVertex();
+            worldrenderer.pos(box.maxX, box.maxY, box.maxZ).color(r, g, b, a).endVertex();
+    
+            worldrenderer.pos(box.minX, box.minY, box.maxZ).color(r, g, b, a).endVertex();
+            worldrenderer.pos(box.minX, box.maxY, box.maxZ).color(r, g, b, a).endVertex();
+    
+            tessellator.draw();
+        } finally {
+            GL11.glLineWidth(1.0F);
         
-        float r = 1.0f;
-        float g = 0.0f;
-        float b = 0.0f;
-        float a = 0.8f;
-
-        // Draw outline of player bounding box in red
-        worldrenderer.pos(box.minX, box.minY, box.minZ).color(r, g, b, a).endVertex();
-        worldrenderer.pos(box.maxX, box.minY, box.minZ).color(r, g, b, a).endVertex();
-        worldrenderer.pos(box.maxX, box.minY, box.maxZ).color(r, g, b, a).endVertex();
-        worldrenderer.pos(box.minX, box.minY, box.maxZ).color(r, g, b, a).endVertex();
-        worldrenderer.pos(box.minX, box.minY, box.minZ).color(r, g, b, a).endVertex();
-
-        worldrenderer.pos(box.minX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
-        worldrenderer.pos(box.maxX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
-        worldrenderer.pos(box.maxX, box.maxY, box.maxZ).color(r, g, b, a).endVertex();
-        worldrenderer.pos(box.minX, box.maxY, box.maxZ).color(r, g, b, a).endVertex();
-        worldrenderer.pos(box.minX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
-
-        worldrenderer.pos(box.minX, box.minY, box.minZ).color(r, g, b, a).endVertex();
-        worldrenderer.pos(box.minX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
-
-        worldrenderer.pos(box.maxX, box.minY, box.minZ).color(r, g, b, a).endVertex();
-        worldrenderer.pos(box.maxX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
-
-        worldrenderer.pos(box.maxX, box.minY, box.maxZ).color(r, g, b, a).endVertex();
-        worldrenderer.pos(box.maxX, box.maxY, box.maxZ).color(r, g, b, a).endVertex();
-
-        worldrenderer.pos(box.minX, box.minY, box.maxZ).color(r, g, b, a).endVertex();
-        worldrenderer.pos(box.minX, box.maxY, box.maxZ).color(r, g, b, a).endVertex();
-
-        tessellator.draw();
-
-        // Reset GL states
-        GlStateManager.depthMask(true);
-        GlStateManager.enableTexture2D();
-        GlStateManager.disableBlend();
-        GlStateManager.popMatrix();
+            GlStateManager.color(
+                1.0F,
+                1.0F,
+                1.0F,
+                1.0F
+            );
+        
+            GlStateManager.depthMask(true);
+        
+            GlStateManager.enableDepth();
+        
+            GlStateManager.enableTexture2D();
+        
+            GlStateManager.disableBlend();
+        
+            GlStateManager.enableLighting();
+        
+            GlStateManager.popMatrix();
+        }
     }
 
     private boolean shouldAutoAim(ItemStack item) {
@@ -362,90 +379,110 @@ public class AimbowGui {
     }
 
     private void drawBlockHighlight(BlockPos pos, Vec3 direction, float partialTicks) {
-        Entity viewer = Minecraft.getMinecraft().getRenderViewEntity();
-        double viewerX = viewer.lastTickPosX + (viewer.posX - viewer.lastTickPosX) * partialTicks;
-        double viewerY = viewer.lastTickPosY + (viewer.posY - viewer.lastTickPosY) * partialTicks;
-        double viewerZ = viewer.lastTickPosZ + (viewer.posZ - viewer.lastTickPosZ) * partialTicks;
-
-        GlStateManager.pushMatrix();
-        GlStateManager.enableBlend();
-        GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
-        GlStateManager.disableTexture2D();
-        GlStateManager.depthMask(false);
-
-        // Use red tint for block highlight
-        float r = 1.0f;
-        float g = 0.0f;
-        float b = 0.0f;
-        float a = alpha / 255.0f;
-
-        Tessellator tessellator = Tessellator.getInstance();
-        WorldRenderer worldrenderer = tessellator.getWorldRenderer();
-
-        AxisAlignedBB box = new AxisAlignedBB(
-                pos.getX(), pos.getY(), pos.getZ(),
-                pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1
-        ).expand(0.002, 0.002, 0.002)
-                .offset(-viewerX, -viewerY, -viewerZ);
-
-        // Determine which face to highlight based on trajectory direction
-        String hitFace = "top"; // default
-        if (direction != null) {
-            double absX = Math.abs(direction.xCoord);
-            double absY = Math.abs(direction.yCoord);
-            double absZ = Math.abs(direction.zCoord);
-            
-            if (absY > absX && absY > absZ) {
-                hitFace = direction.yCoord > 0 ? "top" : "bottom";
-            } else if (absX > absZ) {
-                hitFace = direction.xCoord > 0 ? "east" : "west";
-            } else {
-                hitFace = direction.zCoord > 0 ? "south" : "north";
+        try{
+            Entity viewer = Minecraft.getMinecraft().getRenderViewEntity();
+            double viewerX = viewer.lastTickPosX + (viewer.posX - viewer.lastTickPosX) * partialTicks;
+            double viewerY = viewer.lastTickPosY + (viewer.posY - viewer.lastTickPosY) * partialTicks;
+            double viewerZ = viewer.lastTickPosZ + (viewer.posZ - viewer.lastTickPosZ) * partialTicks;
+    
+            GlStateManager.pushMatrix();
+            GlStateManager.enableBlend();
+            GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
+            GlStateManager.disableTexture2D();
+            GlStateManager.depthMask(false);
+    
+            // Use red tint for block highlight
+            float r = 1.0f;
+            float g = 0.0f;
+            float b = 0.0f;
+            float a = alpha / 255.0f;
+    
+            Tessellator tessellator = Tessellator.getInstance();
+            WorldRenderer worldrenderer = tessellator.getWorldRenderer();
+    
+            AxisAlignedBB box = new AxisAlignedBB(
+                    pos.getX(), pos.getY(), pos.getZ(),
+                    pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1
+            ).expand(0.002, 0.002, 0.002)
+                    .offset(-viewerX, -viewerY, -viewerZ);
+    
+            // Determine which face to highlight based on trajectory direction
+            String hitFace = "top"; // default
+            if (direction != null) {
+                double absX = Math.abs(direction.xCoord);
+                double absY = Math.abs(direction.yCoord);
+                double absZ = Math.abs(direction.zCoord);
+                
+                if (absY > absX && absY > absZ) {
+                    hitFace = direction.yCoord > 0 ? "top" : "bottom";
+                } else if (absX > absZ) {
+                    hitFace = direction.xCoord > 0 ? "east" : "west";
+                } else {
+                    hitFace = direction.zCoord > 0 ? "south" : "north";
+                }
             }
+    
+            // Draw only the hit face
+            worldrenderer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
+            
+            if (hitFace.equals("bottom")) { // -Y
+                worldrenderer.pos(box.minX, box.minY, box.minZ).color(r, g, b, a).endVertex();
+                worldrenderer.pos(box.maxX, box.minY, box.minZ).color(r, g, b, a).endVertex();
+                worldrenderer.pos(box.maxX, box.minY, box.maxZ).color(r, g, b, a).endVertex();
+                worldrenderer.pos(box.minX, box.minY, box.maxZ).color(r, g, b, a).endVertex();
+            } else if (hitFace.equals("top")) { // +Y
+                worldrenderer.pos(box.minX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
+                worldrenderer.pos(box.minX, box.maxY, box.maxZ).color(r, g, b, a).endVertex();
+                worldrenderer.pos(box.maxX, box.maxY, box.maxZ).color(r, g, b, a).endVertex();
+                worldrenderer.pos(box.maxX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
+            } else if (hitFace.equals("north")) { // -Z
+                worldrenderer.pos(box.minX, box.minY, box.minZ).color(r, g, b, a).endVertex();
+                worldrenderer.pos(box.minX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
+                worldrenderer.pos(box.maxX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
+                worldrenderer.pos(box.maxX, box.minY, box.minZ).color(r, g, b, a).endVertex();
+            } else if (hitFace.equals("south")) { // +Z
+                worldrenderer.pos(box.minX, box.minY, box.maxZ).color(r, g, b, a).endVertex();
+                worldrenderer.pos(box.maxX, box.minY, box.maxZ).color(r, g, b, a).endVertex();
+                worldrenderer.pos(box.maxX, box.maxY, box.maxZ).color(r, g, b, a).endVertex();
+                worldrenderer.pos(box.minX, box.maxY, box.maxZ).color(r, g, b, a).endVertex();
+            } else if (hitFace.equals("west")) { // -X
+                worldrenderer.pos(box.minX, box.minY, box.minZ).color(r, g, b, a).endVertex();
+                worldrenderer.pos(box.minX, box.minY, box.maxZ).color(r, g, b, a).endVertex();
+                worldrenderer.pos(box.minX, box.maxY, box.maxZ).color(r, g, b, a).endVertex();
+                worldrenderer.pos(box.minX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
+            } else if (hitFace.equals("east")) { // +X
+                worldrenderer.pos(box.maxX, box.minY, box.minZ).color(r, g, b, a).endVertex();
+                worldrenderer.pos(box.maxX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
+                worldrenderer.pos(box.maxX, box.maxY, box.maxZ).color(r, g, b, a).endVertex();
+                worldrenderer.pos(box.maxX, box.minY, box.maxZ).color(r, g, b, a).endVertex();
+            }
+    
+            tessellator.draw();
+            } finally {
+            
+                // Reset GL states
+                GL11.glLineWidth(1.0F);
+            
+                GlStateManager.color(
+                    1.0F,
+                    1.0F,
+                    1.0F,
+                    1.0F
+                );
+            
+                GlStateManager.depthMask(true);
+            
+                GlStateManager.enableDepth();
+            
+                GlStateManager.enableTexture2D();
+            
+                GlStateManager.disableBlend();
+            
+                GlStateManager.enableLighting();
+            
+                GlStateManager.popMatrix();
         }
 
-        // Draw only the hit face
-        worldrenderer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
-        
-        if (hitFace.equals("bottom")) { // -Y
-            worldrenderer.pos(box.minX, box.minY, box.minZ).color(r, g, b, a).endVertex();
-            worldrenderer.pos(box.maxX, box.minY, box.minZ).color(r, g, b, a).endVertex();
-            worldrenderer.pos(box.maxX, box.minY, box.maxZ).color(r, g, b, a).endVertex();
-            worldrenderer.pos(box.minX, box.minY, box.maxZ).color(r, g, b, a).endVertex();
-        } else if (hitFace.equals("top")) { // +Y
-            worldrenderer.pos(box.minX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
-            worldrenderer.pos(box.minX, box.maxY, box.maxZ).color(r, g, b, a).endVertex();
-            worldrenderer.pos(box.maxX, box.maxY, box.maxZ).color(r, g, b, a).endVertex();
-            worldrenderer.pos(box.maxX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
-        } else if (hitFace.equals("north")) { // -Z
-            worldrenderer.pos(box.minX, box.minY, box.minZ).color(r, g, b, a).endVertex();
-            worldrenderer.pos(box.minX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
-            worldrenderer.pos(box.maxX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
-            worldrenderer.pos(box.maxX, box.minY, box.minZ).color(r, g, b, a).endVertex();
-        } else if (hitFace.equals("south")) { // +Z
-            worldrenderer.pos(box.minX, box.minY, box.maxZ).color(r, g, b, a).endVertex();
-            worldrenderer.pos(box.maxX, box.minY, box.maxZ).color(r, g, b, a).endVertex();
-            worldrenderer.pos(box.maxX, box.maxY, box.maxZ).color(r, g, b, a).endVertex();
-            worldrenderer.pos(box.minX, box.maxY, box.maxZ).color(r, g, b, a).endVertex();
-        } else if (hitFace.equals("west")) { // -X
-            worldrenderer.pos(box.minX, box.minY, box.minZ).color(r, g, b, a).endVertex();
-            worldrenderer.pos(box.minX, box.minY, box.maxZ).color(r, g, b, a).endVertex();
-            worldrenderer.pos(box.minX, box.maxY, box.maxZ).color(r, g, b, a).endVertex();
-            worldrenderer.pos(box.minX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
-        } else if (hitFace.equals("east")) { // +X
-            worldrenderer.pos(box.maxX, box.minY, box.minZ).color(r, g, b, a).endVertex();
-            worldrenderer.pos(box.maxX, box.maxY, box.minZ).color(r, g, b, a).endVertex();
-            worldrenderer.pos(box.maxX, box.maxY, box.maxZ).color(r, g, b, a).endVertex();
-            worldrenderer.pos(box.maxX, box.minY, box.maxZ).color(r, g, b, a).endVertex();
-        }
-
-        tessellator.draw();
-
-        // Reset GL states
-        GlStateManager.depthMask(true);
-        GlStateManager.enableTexture2D();
-        GlStateManager.disableBlend();
-        GlStateManager.popMatrix();
     }
 
     private void drawAimIndicator(int x, int y, boolean hit) {
