@@ -3,7 +3,7 @@ name: Build aimbow
 on:
   push:
     branches:
-      - main
+      - master
 
 permissions:
   contents: read
