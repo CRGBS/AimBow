@@ -30,6 +30,7 @@ public class AimBowMod {
 
 	@Instance(value = "AB")
 	public static AimBowMod instance;
+	public static AimbowGui gui;
 
 	public static int red;
 	public static int green;
@@ -51,6 +52,7 @@ public class AimBowMod {
 		ClientCommandHandler.instance.registerCommand(new AimBowCommand());
 		MinecraftForge.EVENT_BUS.register(this);
 		controller.initialize();
+		gui = new AimbowGui();
 
 		red = config.get("Color", "Red", 255).getInt();
 		green = config.get("Color", "Green", 255).getInt();
