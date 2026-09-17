@@ -1,4 +1,4 @@
-name: Build MHOUTLINE
+name: Build aimbow
 
 on:
   push:
@@ -45,7 +45,7 @@ jobs:
       - name: Upload JAR artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mhoutline-0.1.0-${{ github.sha }}
+          name: aimbow-0.1.0-${{ github.sha }}
           path: ${{ steps.jar.outputs.path }}
           if-no-files-found: error
           retention-days: 14
