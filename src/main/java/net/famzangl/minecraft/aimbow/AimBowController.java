@@ -7,6 +7,7 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent.ClientTickEvent;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 import org.lwjgl.input.Keyboard;
 
 import static net.famzangl.minecraft.aimbow.AimBowMod.TrajectoryState;
@@ -30,7 +31,7 @@ public class AimBowController {
 		if (!initialized) {
 			this.gui = AimBowMod.gui;
 			// Register both the controller and GUI with the event bus
-			MinecraftForge.EVENT_BUS.register(this);
+			FMLCommonHandler.instance().bus().register(this);
 			MinecraftForge.EVENT_BUS.register(gui);
 			initialized = true;
 		}
