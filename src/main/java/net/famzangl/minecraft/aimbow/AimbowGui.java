@@ -796,200 +796,229 @@ public class AimbowGui {
     }
 
 
-    private void handleAutoAim(
-            ColissionSolver solver) {
+private void handleAutoAim(
+        ColissionSolver solver) {
 
-        if (mc.thePlayer == null ||
-                mc.theWorld == null) {
-            return;
-        }
+    if (mc.thePlayer == null ||
+            mc.theWorld == null) {
+        return;
+    }
 
-        EntityPlayerSP player =
-                mc.thePlayer;
+    EntityPlayerSP player = mc.thePlayer;
 
-        AxisAlignedBB searchBox =
-                player.getEntityBoundingBox()
-                        .expand(
-                                AUTO_AIM_RANGE,
-                                100.0D,
-                                AUTO_AIM_RANGE
-                        );
-
-        List<Entity> entities =
-                mc.theWorld.getEntitiesWithinAABB(
-                        Entity.class,
-                        searchBox
-                );
-
-        if (entities == null ||
-                entities.isEmpty()) {
-            return;
-        }
-
-        ReverseBowSolver aimHelper =
-                new ReverseBowSolver(
-                        solver.getGravity(),
-                        solver.getVelocity()
-                );
-
-        CloseEntity bestCandidate = null;
-
-        for (Entity entity : entities) {
-
-            if (entity == null) {
-                continue;
-            }
-
-            if (entity == player) {
-                continue;
-            }
-
-            if (!entity.canBeCollidedWith()) {
-                continue;
-            }
-
-            if (entity.isDead) {
-                continue;
-            }
-
-            /*
-             * Living Entity 才檢查血量。
-             */
-            if (entity instanceof EntityLivingBase) {
-
-                EntityLivingBase living =
-                        (EntityLivingBase) entity;
-
-                if (living.getHealth() <= 0.0F) {
-                    continue;
-                }
-            }
-
-            double distanceSq =
-                    entity.getDistanceSqToEntity(
-                            player
+    AxisAlignedBB searchBox =
+            player.getEntityBoundingBox()
+                    .expand(
+                            AUTO_AIM_RANGE,
+                            100.0D,
+                            AUTO_AIM_RANGE
                     );
 
-            if (distanceSq >
-                    AUTO_AIM_RANGE *
-                            AUTO_AIM_RANGE) {
+    List<Entity> entities =
+            mc.theWorld.getEntitiesWithinAABB(
+                    Entity.class,
+                    searchBox
+            );
+
+    if (entities == null ||
+            entities.isEmpty()) {
+        return;
+    }
+
+    ReverseBowSolver aimHelper =
+            new ReverseBowSolver(
+                    solver.getGravity(),
+                    solver.getVelocity()
+            );
+
+    CloseEntity bestCandidate = null;
+
+    for (Entity entity : entities) {
+
+        if (entity == null ||
+                entity == player) {
+            continue;
+        }
+
+        if (!entity.canBeCollidedWith() ||
+                entity.isDead) {
+            continue;
+        }
+
+        if (entity instanceof EntityLivingBase) {
+
+            EntityLivingBase living =
+                    (EntityLivingBase) entity;
+
+            if (living.getHealth() <= 0.0F) {
                 continue;
             }
+        }
 
-            Vec3 aimVector;
+        double distanceSq =
+                entity.getDistanceSqToEntity(player);
 
-            try {
+        if (distanceSq >
+                AUTO_AIM_RANGE * AUTO_AIM_RANGE) {
+            continue;
+        }
 
-                aimVector =
-                        aimHelper.getLookForTarget(
-                                entity
-                        );
+        Vec3 aimVector;
 
-            } catch (Exception e) {
-                continue;
-            }
+        try {
 
-            if (aimVector == null) {
-                continue;
-            }
-
-            /*
-             * 檢查向量是否有效。
-             */
-            double length =
-                    Math.sqrt(
-                            aimVector.xCoord *
-                                    aimVector.xCoord +
-
-                            aimVector.yCoord *
-                                    aimVector.yCoord +
-
-                            aimVector.zCoord *
-                                    aimVector.zCoord
-                    );
-
-            if (length <
-                    0.000001D ||
-                    Double.isNaN(length) ||
-                    Double.isInfinite(length)) {
-                continue;
-            }
-
-            /*
-             * Normalize。
-             */
             aimVector =
-                    new Vec3(
-                            aimVector.xCoord / length,
-                            aimVector.yCoord / length,
-                            aimVector.zCoord / length
+                    aimHelper.getLookForTarget(
+                            entity
                     );
 
-            List<ColissionData> results;
+        } catch (Exception e) {
+            continue;
+        }
 
-            try {
+        if (aimVector == null) {
+            continue;
+        }
 
-                results =
-                        solver.computeColissionWithLook(
-                                aimVector
-                        );
+        double length =
+                Math.sqrt(
+                        aimVector.xCoord * aimVector.xCoord +
+                        aimVector.yCoord * aimVector.yCoord +
+                        aimVector.zCoord * aimVector.zCoord
+                );
 
-            } catch (Exception e) {
-                continue;
-            }
+        if (length < 0.000001D ||
+                Double.isNaN(length) ||
+                Double.isInfinite(length)) {
+            continue;
+        }
 
-            if (results == null ||
-                    results.isEmpty()) {
-                continue;
-            }
+        aimVector =
+                new Vec3(
+                        aimVector.xCoord / length,
+                        aimVector.yCoord / length,
+                        aimVector.zCoord / length
+                );
 
-            /*
-             * 第一個碰撞必須是目標。
-             *
-             * 如果中間有牆，
-             * results.get(0) 會是方塊碰撞，
-             * 因此不會瞄準穿牆目標。
-             */
-            ColissionData first =
-                    results.get(0);
+        List<ColissionData> results;
 
-            if (first == null) {
-                continue;
-            }
+        try {
 
-            if (first.hitEntity != entity) {
-                continue;
-            }
+            results =
+                    solver.computeColissionWithLook(
+                            aimVector
+                    );
 
-            double distance =
-                    Math.sqrt(distanceSq);
+        } catch (Exception e) {
+            continue;
+        }
 
-            /*
-             * 選擇最近的可命中目標。
-             */
-            if (bestCandidate == null ||
-                    distance <
-                            bestCandidate.distance) {
-
-                bestCandidate =
-                        new CloseEntity(
-                                entity,
-                                distance,
-                                aimVector
-                        );
-            }
+        if (results == null ||
+                results.isEmpty()) {
+            continue;
         }
 
         /*
-         * 找到目標才轉頭。
+         * 第一個碰撞必須就是目標。
+         * 因此仍然不會穿牆。
          */
-        if (bestCandidate != null) {
+        ColissionData first =
+                results.get(0);
 
-            adjustPlayerLook(
-                    bestCandidate.lookDirection
-            );
+        if (first == null ||
+                first.hitEntity != entity) {
+            continue;
+        }
+
+        /*
+         * 計算這個目標相對於「目前視角中心」
+         * 的角度差。
+         *
+         * 角度越小 = 越靠近準心。
+         */
+        double angle =
+                getAimAngle(aimVector);
+
+        if (Double.isNaN(angle) ||
+                Double.isInfinite(angle)) {
+            continue;
+        }
+
+        double distance =
+                Math.sqrt(distanceSq);
+
+        /*
+         * 優先比較角度。
+         *
+         * 只有當兩個目標非常接近準心時，
+         * 才使用距離作為第二排序條件。
+         */
+        if (bestCandidate == null ||
+                angle < bestCandidate.angle - 0.001D ||
+                (
+                    Math.abs(
+                            angle -
+                                    bestCandidate.angle
+                    ) <= 0.001D &&
+                    distance <
+                            bestCandidate.distance
+                )) {
+
+            bestCandidate =
+                    new CloseEntity(
+                            entity,
+                            distance,
+                            aimVector,
+                            angle
+                    );
         }
     }
+
+    if (bestCandidate != null) {
+
+        adjustPlayerLook(
+                bestCandidate.lookDirection
+        );
+    }
+}
+
+private double getAimAngle(Vec3 targetDirection) {
+
+    if (mc.thePlayer == null ||
+            targetDirection == null) {
+        return Double.MAX_VALUE;
+    }
+
+    Vec3 currentLook =
+            mc.thePlayer.getLook(1.0F);
+
+    if (currentLook == null) {
+        return Double.MAX_VALUE;
+    }
+
+    double dot =
+            currentLook.xCoord * targetDirection.xCoord +
+            currentLook.yCoord * targetDirection.yCoord +
+            currentLook.zCoord * targetDirection.zCoord;
+
+    /*
+     * 防止浮點誤差造成 acos() 出現 NaN。
+     */
+    dot =
+            Math.max(
+                    -1.0D,
+                    Math.min(1.0D, dot)
+            );
+
+    /*
+     * 弧度。
+     *
+     * 0 = 完全在準心中心
+     * 越大 = 越偏離準心
+     */
+    return Math.acos(dot);
+}
+
 
 
     // =========================================================
@@ -1651,36 +1680,51 @@ public class AimbowGui {
     // CANDIDATE
     // =========================================================
 
-    private static class CloseEntity
-            implements Comparable<CloseEntity> {
+private static class CloseEntity
+        implements Comparable<CloseEntity> {
 
-        final Entity entity;
+    final Entity entity;
 
-        final double distance;
+    final double distance;
 
-        final Vec3 lookDirection;
+    final Vec3 lookDirection;
 
-        CloseEntity(
-                Entity entity,
-                double distance,
-                Vec3 lookDirection) {
+    final double angle;
 
-            this.entity = entity;
+    CloseEntity(
+            Entity entity,
+            double distance,
+            Vec3 lookDirection,
+            double angle) {
 
-            this.distance = distance;
+        this.entity = entity;
 
-            this.lookDirection =
-                    lookDirection;
-        }
+        this.distance = distance;
 
-        @Override
-        public int compareTo(
-                CloseEntity other) {
+        this.lookDirection = lookDirection;
 
-            return Double.compare(
-                    this.distance,
-                    other.distance
-            );
-        }
+        this.angle = angle;
     }
+
+    @Override
+    public int compareTo(
+            CloseEntity other) {
+
+        int angleCompare =
+                Double.compare(
+                        this.angle,
+                        other.angle
+                );
+
+        if (angleCompare != 0) {
+            return angleCompare;
+        }
+
+        return Double.compare(
+                this.distance,
+                other.distance
+        );
+    }
+}
+
 }
