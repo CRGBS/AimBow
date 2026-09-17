@@ -44,13 +44,14 @@ public class AimBowMod {
 	@EventHandler
 	public void init(FMLInitializationEvent event) {
 		final net.famzangl.minecraft.aimbow.AimBowController controller = new net.famzangl.minecraft.aimbow.AimBowController();
-		controller.initialize();
+		
 
 		Configuration config = new Configuration(new File("config/AimBowColorGui.cfg"));
 		config.load();
 
 		ClientCommandHandler.instance.registerCommand(new AimBowCommand());
 		MinecraftForge.EVENT_BUS.register(this);
+		controller.initialize();
 		gui = new AimbowGui();
 		MinecraftForge.EVENT_BUS.register(gui);
 
