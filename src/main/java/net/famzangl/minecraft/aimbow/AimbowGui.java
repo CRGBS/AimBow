@@ -326,8 +326,11 @@ public class AimbowGui {
     }
 
     private boolean shouldAutoAim(ItemStack item) {
-        return item.getItem() != Items.bow || mc.thePlayer.getItemInUseCount() > 0;
+        return item != null
+                && item.getItem() == Items.bow
+                && mc.thePlayer.getItemInUseCount() > 0;
     }
+
 
     private void handleAutoAim(Pos2 targetPos, ScaledResolution res, ColissionSolver solver) {
         List<Entity> entities = mc.theWorld.getEntitiesWithinAABB(
