@@ -28,7 +28,7 @@ public class AimBowController {
 	// Fixed version removes the GUI replacement and uses proper event registration
 	public void initialize() {
 		if (!initialized) {
-			this.gui = new AimbowGui();
+			this.gui = AimBowMod.gui;
 			// Register both the controller and GUI with the event bus
 			MinecraftForge.EVENT_BUS.register(this);
 			MinecraftForge.EVENT_BUS.register(gui);
