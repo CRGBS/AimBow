@@ -184,13 +184,22 @@ public class AimbowGui {
         List<ColissionData> collisions = solver.computeCurrentColissionPoints();
         boolean drawn = false;
 
+
         for (ColissionData p : collisions) {
-            Pos2 pos = getScreenPosition(p.x, p.y + player.getEyeHeight(), p.z, resolution);
+            Pos2 pos = getScreenPosition(
+                    p.x,
+                    p.y + player.getEyeHeight(),
+                    p.z,
+                    resolution
+            );
+        
             boolean hit = p.hitEntity != null;
             drawAimIndicator(pos.x, pos.y, hit);
-            if (!drawn && !hit && autoAim && shouldAutoAim(heldItem)) {
+        
+            if (autoAim && shouldAutoAim(heldItem)) {
                 handleAutoAim(pos, resolution, solver);
             }
+        
             drawn = true;
         }
 
