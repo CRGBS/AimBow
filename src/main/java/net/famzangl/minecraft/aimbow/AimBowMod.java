@@ -6,21 +6,35 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 
-@Mod(modid = AimBowMod.MOD_ID, name = "AimBow", version = AimBowMod.VERSION, clientSideOnly = true, acceptedMinecraftVersions = "[1.8.9]")
+@Mod(modid = AimBowMod.MOD_ID, name = "AimBow", version = AimBowMod.VERSION,
+        clientSideOnly = true, acceptedMinecraftVersions = "[1.8.9]")
 public final class AimBowMod {
     public static final String MOD_ID = "AimBow";
-    public static final String VERSION = "0.1.1";
-    private static Configuration config;
+    public static final String VERSION = "0.2.0";
 
-    public static int red = 255, green = 255, blue = 255, alpha = 255, lineWidth = 3;
-    public static boolean crossHairState, blockDistanceState, trajectoryState = true;
+    private static Configuration config;
     public static AimbowGui gui;
+
+    public static int red = 255;
+    public static int green = 255;
+    public static int blue = 255;
+    public static int alpha = 255;
+    public static int lineWidth = 3;
+    public static boolean crossHairState = false;
+    public static boolean blockDistanceState = false;
+    public static boolean trajectoryState = true;
+
+    @Mod.EventHandler
+    public void preInit(FMLPreInitializationEvent event) {
+        File file = new File(event.getModConfigurationDirectory(), "AimBowColorGui.cfg");
+        config = new Configuration(file);
+        loadConfig();
+    }
 
     @Mod.EventHandler
     public void init(FMLInitializationEvent event) {
-        config = new Configuration(new File("config/AimBowColorGui.cfg"));
-        loadConfig();
         gui = new AimbowGui();
         MinecraftForge.EVENT_BUS.register(gui);
         new AimBowController(gui).initialize();
@@ -34,9 +48,9 @@ public final class AimBowMod {
         blue = config.getInt("Blue", "Color", 255, 0, 255, "Blue component");
         alpha = config.getInt("Alpha", "Color", 255, 0, 255, "Alpha component");
         lineWidth = config.getInt("Width", "Color", 3, 1, 10, "Trajectory line width");
-        crossHairState = config.getBoolean("CrossHairState", "General", false, "Draw custom hit crosshair");
-        blockDistanceState = config.getBoolean("BlockDistance", "General", false, "Display hit distance");
-        trajectoryState = config.getBoolean("Trajectory", "General", true, "Display projectile trajectory");
+        crossHairState = config.getBoolean("CrossHairState", "General", false, "Show custom crosshair");
+        blockDistanceState = config.getBoolean("BlockDistance", "General", false, "Show impact distance");
+        trajectoryState = config.getBoolean("Trajectory", "General", true, "Show trajectory");
         if (config.hasChanged()) config.save();
     }
 

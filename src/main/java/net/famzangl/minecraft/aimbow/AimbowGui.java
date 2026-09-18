@@ -1,127 +1,41 @@
 package net.famzangl.minecraft.aimbow;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import net.famzangl.minecraft.aimbow.aiming.ColissionData;
-import net.famzangl.minecraft.aimbow.aiming.ColissionSolver;
-import net.famzangl.minecraft.aimbow.aiming.Bow.ReverseBowSolver;
+import static net.famzangl.minecraft.aimbow.SmartAimConfig.*;
+import java.util.*;
+import net.famzangl.minecraft.aimbow.aiming.*;
+import net.famzangl.minecraft.aimbow.aiming.Bow.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.ScaledResolution;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.Tessellator;
-import net.minecraft.client.renderer.WorldRenderer;
+import net.minecraft.client.renderer.*;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.*;
 import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.AxisAlignedBB;
-import net.minecraft.util.BlockPos;
-import net.minecraft.util.Vec3;
-import net.minecraftforge.client.event.RenderGameOverlayEvent;
-import net.minecraftforge.client.event.RenderWorldLastEvent;
+import net.minecraft.util.*;
+import net.minecraftforge.client.event.*;
+import net.minecraftforge.event.world.WorldEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.lwjgl.opengl.GL11;
-
 public final class AimbowGui {
-    private static final double AUTO_AIM_RANGE=128.0D;
-    private static final float AIM_SMOOTH=0.35F;
-    private final Minecraft mc=Minecraft.getMinecraft();
-    private final List<Vec3> trajectory=new ArrayList<Vec3>(200);
-    private List<ColissionData> collisions=Collections.emptyList();
-    private boolean autoAim;
-
-    public boolean isAutoAim(){return autoAim;}
-    public void setAutoAim(boolean value){autoAim=value;}
-
-    @SubscribeEvent public void onTick(TickEvent.ClientTickEvent event){
-        if(event.phase!=TickEvent.Phase.END || !autoAim || !AimBowMod.trajectoryState || mc.thePlayer==null || mc.theWorld==null) return;
-        ItemStack item=mc.thePlayer.getItemInUse();
-        if(item==null || item.getItem()!=Items.bow) return;
-        ColissionSolver solver=ColissionSolver.forItem(item,mc);
-        if(solver!=null) autoAim(solver);
-    }
-
-    @SubscribeEvent public void onWorldRender(RenderWorldLastEvent event){
-        trajectory.clear(); collisions=Collections.emptyList();
-        if(!AimBowMod.trajectoryState || mc.thePlayer==null || mc.theWorld==null) return;
-        ColissionSolver solver=ColissionSolver.forItem(mc.thePlayer.getHeldItem(),mc);
-        if(solver==null) return;
-        collisions=solver.computeCurrentColissionPoints(trajectory);
-        drawTrajectory();
-        if(!collisions.isEmpty() && collisions.get(0).hitEntity==null) drawBlock(new BlockPos(collisions.get(0).x,collisions.get(0).y,collisions.get(0).z),event.partialTicks);
-    }
-
-    @SubscribeEvent public void onOverlay(RenderGameOverlayEvent.Post event){
-        if(event.type!=RenderGameOverlayEvent.ElementType.ALL || mc.thePlayer==null || !AimBowMod.trajectoryState) return;
-        ScaledResolution res=new ScaledResolution(mc);
-        if(AimBowMod.blockDistanceState && !collisions.isEmpty()){
-            ColissionData hit=collisions.get(0); double d=mc.thePlayer.getPositionEyes(event.partialTicks).distanceTo(new Vec3(hit.x,hit.y,hit.z));
-            mc.fontRendererObj.drawStringWithShadow(String.format("Hit distance: %.1f",d),res.getScaledWidth()/2+10,res.getScaledHeight()/2-4,0xFFFFFF);
-        }
-        if(AimBowMod.crossHairState) drawCrosshair(res.getScaledWidth()/2-8,res.getScaledHeight()/2-8,!collisions.isEmpty() && collisions.get(0).hitEntity!=null);
-    }
-
-    private void drawTrajectory(){
-        if(trajectory.size()<2) return;
-        Entity viewer=mc.getRenderViewEntity(); if(viewer==null) return;
-        double vx=mc.getRenderManager().viewerPosX,vy=mc.getRenderManager().viewerPosY,vz=mc.getRenderManager().viewerPosZ;
-        GlStateManager.pushMatrix();
-        try{
-            GlStateManager.disableTexture2D(); GlStateManager.disableLighting(); GlStateManager.enableBlend();
-            GlStateManager.tryBlendFuncSeparate(770,771,1,0); GL11.glLineWidth(Math.max(1,AimBowMod.lineWidth));
-            WorldRenderer wr=Tessellator.getInstance().getWorldRenderer(); wr.begin(GL11.GL_LINE_STRIP,DefaultVertexFormats.POSITION_COLOR);
-            float r=AimBowMod.red/255F,g=AimBowMod.green/255F,b=AimBowMod.blue/255F,a=AimBowMod.alpha/255F;
-            for(Vec3 p:trajectory) wr.pos(p.xCoord-vx,p.yCoord-vy,p.zCoord-vz).color(r,g,b,a).endVertex();
-            Tessellator.getInstance().draw();
-        }finally{GL11.glLineWidth(1);GlStateManager.color(1,1,1,1);GlStateManager.enableTexture2D();GlStateManager.disableBlend();GlStateManager.popMatrix();}
-    }
-
-    private void drawBlock(BlockPos pos,float partial){
-        Entity viewer=mc.getRenderViewEntity(); if(viewer==null) return;
-        double x=viewer.lastTickPosX+(viewer.posX-viewer.lastTickPosX)*partial;
-        double y=viewer.lastTickPosY+(viewer.posY-viewer.lastTickPosY)*partial;
-        double z=viewer.lastTickPosZ+(viewer.posZ-viewer.lastTickPosZ)*partial;
-        AxisAlignedBB box=new AxisAlignedBB(pos.getX(),pos.getY(),pos.getZ(),pos.getX()+1,pos.getY()+1,pos.getZ()+1).expand(.002,.002,.002).offset(-x,-y,-z);
-        GlStateManager.pushMatrix();
-        try{GlStateManager.disableTexture2D();GlStateManager.enableBlend();GlStateManager.depthMask(false);GL11.glLineWidth(2);
-            WorldRenderer wr=Tessellator.getInstance().getWorldRenderer();wr.begin(GL11.GL_LINES,DefaultVertexFormats.POSITION_COLOR);
-            float r=AimBowMod.red/255F,g=AimBowMod.green/255F,b=AimBowMod.blue/255F,a=AimBowMod.alpha/255F;
-            line(wr,box.minX,box.minY,box.minZ,box.maxX,box.minY,box.minZ,r,g,b,a);line(wr,box.maxX,box.minY,box.minZ,box.maxX,box.minY,box.maxZ,r,g,b,a);
-            line(wr,box.maxX,box.minY,box.maxZ,box.minX,box.minY,box.maxZ,r,g,b,a);line(wr,box.minX,box.minY,box.maxZ,box.minX,box.minY,box.minZ,r,g,b,a);
-            line(wr,box.minX,box.maxY,box.minZ,box.maxX,box.maxY,box.minZ,r,g,b,a);line(wr,box.maxX,box.maxY,box.minZ,box.maxX,box.maxY,box.maxZ,r,g,b,a);
-            line(wr,box.maxX,box.maxY,box.maxZ,box.minX,box.maxY,box.maxZ,r,g,b,a);line(wr,box.minX,box.maxY,box.maxZ,box.minX,box.maxY,box.minZ,r,g,b,a);
-            line(wr,box.minX,box.minY,box.minZ,box.minX,box.maxY,box.minZ,r,g,b,a);line(wr,box.maxX,box.minY,box.minZ,box.maxX,box.maxY,box.minZ,r,g,b,a);
-            line(wr,box.maxX,box.minY,box.maxZ,box.maxX,box.maxY,box.maxZ,r,g,b,a);line(wr,box.minX,box.minY,box.maxZ,box.minX,box.maxY,box.maxZ,r,g,b,a);
-            Tessellator.getInstance().draw();
-        }finally{GL11.glLineWidth(1);GlStateManager.depthMask(true);GlStateManager.enableTexture2D();GlStateManager.disableBlend();GlStateManager.popMatrix();}
-    }
-    private void line(WorldRenderer w,double x1,double y1,double z1,double x2,double y2,double z2,float r,float g,float b,float a){w.pos(x1,y1,z1).color(r,g,b,a).endVertex();w.pos(x2,y2,z2).color(r,g,b,a).endVertex();}
-
-    private void drawCrosshair(int x,int y,boolean hit){
-        mc.getTextureManager().bindTexture(Gui.icons);GlStateManager.enableBlend();GlStateManager.tryBlendFuncSeparate(770,771,1,0);
-        GlStateManager.color(hit?1F:0F,hit?0F:1F,0F,1F);drawTexturedModalRect(x,y,0,0,16,16);GlStateManager.color(1,1,1,1);GlStateManager.disableBlend();
-    }
-    private void drawTexturedModalRect(int x,int y,int u,int v,int w,int h){
-        float s=1F/256F;WorldRenderer wr=Tessellator.getInstance().getWorldRenderer();wr.begin(GL11.GL_QUADS,DefaultVertexFormats.POSITION_TEX);
-        wr.pos(x,y+h,0).tex(u*s,(v+h)*s).endVertex();wr.pos(x+w,y+h,0).tex((u+w)*s,(v+h)*s).endVertex();wr.pos(x+w,y,0).tex((u+w)*s,v*s).endVertex();wr.pos(x,y,0).tex(u*s,v*s).endVertex();Tessellator.getInstance().draw();
-    }
-
-    private void autoAim(ColissionSolver solver){
-        EntityPlayerSP player=mc.thePlayer;AxisAlignedBB area=player.getEntityBoundingBox().expand(AUTO_AIM_RANGE,AUTO_AIM_RANGE/2,AUTO_AIM_RANGE);
-        ReverseBowSolver reverse=new ReverseBowSolver(solver.getGravity(),solver.getVelocity());Vec3 current=player.getLook(1);Vec3 best=null;double bestAngle=Math.toRadians(30);
-        for(Entity e:mc.theWorld.getEntitiesWithinAABB(Entity.class,area)){
-            if(e==player || e.isDead || !e.canBeCollidedWith() || !(e instanceof EntityLivingBase) || ((EntityLivingBase)e).getHealth()<=0) continue;
-            Vec3 look=reverse.getLookForTarget(e);if(look==null) continue;double len=look.lengthVector();if(len<1E-7) continue;look=look.normalize();
-            List<ColissionData> test=solver.computeColissionWithLook(look);if(test.isEmpty() || test.get(0).hitEntity!=e) continue;
-            double dot=Math.max(-1,Math.min(1,current.dotProduct(look)));double angle=Math.acos(dot);if(angle<bestAngle){bestAngle=angle;best=look;}
-        }
-        if(best!=null){float yaw=(float)Math.toDegrees(Math.atan2(best.zCoord,best.xCoord))-90F;float pitch=(float)-Math.toDegrees(Math.atan2(best.yCoord,Math.sqrt(best.xCoord*best.xCoord+best.zCoord*best.zCoord)));
-            player.rotationYaw+=wrap(yaw-player.rotationYaw)*AIM_SMOOTH;player.rotationPitch+=(pitch-player.rotationPitch)*AIM_SMOOTH;player.rotationPitch=Math.max(-90,Math.min(90,player.rotationPitch));}
-    }
-    private float wrap(float a){a%=360;if(a>=180)a-=360;if(a< -180)a+=360;return a;}
+ private final Minecraft mc=Minecraft.getMinecraft();private final List<Vec3> path=new ArrayList<Vec3>(200);private List<CollisionData> hits=Collections.emptyList();private boolean autoAim;private EntityLivingBase locked;private int grace,lastSearchTick=-99;
+ public boolean isAutoAim(){return autoAim;}public void setAutoAim(boolean v){autoAim=v;if(!v)locked=null;}
+ @SubscribeEvent public void unload(WorldEvent.Unload e){path.clear();hits=Collections.emptyList();locked=null;grace=0;autoAim=false;lastSearchTick=-99;}
+ @SubscribeEvent public void tick(TickEvent.ClientTickEvent e){if(e.phase!=TickEvent.Phase.END||!autoAim||!AimBowMod.trajectoryState||mc.thePlayer==null||mc.theWorld==null)return;ItemStack held=mc.thePlayer.getItemInUse();if(held==null||held.getItem()!=Items.bow)return;CollisionSolver solver=CollisionSolver.forItem(held,mc);if(!(solver instanceof BowCollisionSolver)||((BowCollisionSolver)solver).getForce()<.1F)return;if(mc.thePlayer.ticksExisted-lastSearchTick>=TARGET_UPDATE_INTERVAL){selectTarget(solver);lastSearchTick=mc.thePlayer.ticksExisted;}if(locked!=null)aimAt(solver,locked);}
+ private void selectTarget(CollisionSolver solver){EntityPlayerSP p=mc.thePlayer;List<Entity> all=mc.theWorld.getEntitiesWithinAABB(Entity.class,p.getEntityBoundingBox().expand(AUTO_AIM_RANGE,AUTO_AIM_RANGE/2,AUTO_AIM_RANGE));final Vec3 gaze=p.getLook(1);Collections.sort(all,new Comparator<Entity>(){public int compare(Entity a,Entity b){return Double.compare(angle(gaze,a),angle(gaze,b));}});EntityLivingBase best=null;double bestScore=Double.MAX_VALUE;int checked=0;for(Entity e:all){if(checked>=MAX_CANDIDATES)break;if(!(e instanceof EntityLivingBase)||e==p||e.isDead||!e.canBeCollidedWith()||((EntityLivingBase)e).getHealth()<=0)continue;double a=angle(gaze,e);if(a>Math.toRadians(MAX_AIM_ANGLE))continue;checked++;Vec3 target=predicted((EntityLivingBase)e,solver);Vec3 look=new ReverseBowSolver(solver.getGravity(),solver.getVelocity()).solve(p,target);if(look==null)continue;List<CollisionData> test=solver.computeCollisionWithLook(look);if(test.isEmpty()||test.get(0).hitEntity!=e)continue;double score=a+Math.sqrt(e.getDistanceSqToEntity(p))*.001;if(score<bestScore){bestScore=score;best=(EntityLivingBase)e;}}
+  if(locked!=null&&valid(locked)){double current=angle(gaze,locked)+Math.sqrt(locked.getDistanceSqToEntity(p))*.001;if(best==null||bestScore>=current*TARGET_SWITCH_FACTOR){grace=LOCK_GRACE_TICKS;return;}}locked=best;grace=best==null?Math.max(0,grace-1):LOCK_GRACE_TICKS;}
+ private boolean valid(EntityLivingBase e){return e!=null&&!e.isDead&&e.getHealth()>0&&e.getDistanceSqToEntity(mc.thePlayer)<=AUTO_AIM_RANGE*AUTO_AIM_RANGE;}
+ private double angle(Vec3 gaze,Entity e){Vec3 to=new Vec3(e.posX-(mc.thePlayer.posX),e.posY+e.getEyeHeight()/2-(mc.thePlayer.posY+mc.thePlayer.getEyeHeight()),e.posZ-mc.thePlayer.posZ);if(to.lengthVector()<1E-7)return 0;return Math.acos(Math.max(-1,Math.min(1,gaze.normalize().dotProduct(to.normalize()))));}
+ private Vec3 predicted(EntityLivingBase e,CollisionSolver solver){Vec3 eyes=mc.thePlayer.getPositionEyes(1);SmartTargeting.PredictionResult r=SmartTargeting.select(SmartTargeting.predict(e,eyes,solver.getVelocity()),eyes,mc.thePlayer.getLook(1));Vec3 p=r==null?new Vec3(e.posX,e.posY+e.getEyeHeight()/2,e.posZ):r.position.addVector(0,e.getEyeHeight()/2,0);return SmartTargeting.bias(p,e);}
+ private void aimAt(CollisionSolver solver,EntityLivingBase target){if(!valid(target)){if(--grace<=0)locked=null;return;}Vec3 dir=new ReverseBowSolver(solver.getGravity(),solver.getVelocity()).solve(mc.thePlayer,predicted(target,solver));if(dir==null)return;float ty=(float)Math.toDegrees(Math.atan2(dir.zCoord,dir.xCoord))-90F,tp=(float)-Math.toDegrees(Math.atan2(dir.yCoord,Math.sqrt(dir.xCoord*dir.xCoord+dir.zCoord*dir.zCoord)));float oldYaw=mc.thePlayer.rotationYaw,oldPitch=mc.thePlayer.rotationPitch;float yd=clamp(wrap(ty-oldYaw)*AIM_SMOOTH,-MAX_YAW_PER_TICK,MAX_YAW_PER_TICK),pd=clamp((tp-oldPitch)*AIM_SMOOTH,-MAX_PITCH_PER_TICK,MAX_PITCH_PER_TICK);mc.thePlayer.prevRotationYaw=oldYaw;mc.thePlayer.prevRotationPitch=oldPitch;mc.thePlayer.rotationYaw=oldYaw+yd;mc.thePlayer.rotationPitch=clamp(oldPitch+pd,-90,90);}
+ private float clamp(float v,float a,float b){return Math.max(a,Math.min(b,v));}private float wrap(float a){a%=360;if(a>=180)a-=360;if(a< -180)a+=360;return a;}
+ @SubscribeEvent public void world(RenderWorldLastEvent e){path.clear();hits=Collections.emptyList();if(!AimBowMod.trajectoryState||mc.thePlayer==null||mc.theWorld==null)return;CollisionSolver s=CollisionSolver.forItem(mc.thePlayer.getHeldItem(),mc);if(s==null)return;hits=s.computeCurrentCollisionPoints(path);drawPath();if(!hits.isEmpty()&&hits.get(0).hitType==MovingObjectPosition.MovingObjectType.BLOCK)drawFace(hits.get(0),e.partialTicks);}
+ @SubscribeEvent public void hud(RenderGameOverlayEvent.Post e){if(e.type!=RenderGameOverlayEvent.ElementType.ALL||mc.thePlayer==null||!AimBowMod.trajectoryState)return;ScaledResolution r=new ScaledResolution(mc);if(AimBowMod.blockDistanceState&&!hits.isEmpty()){CollisionData h=hits.get(0);double d=mc.thePlayer.getPositionEyes(e.partialTicks).distanceTo(new Vec3(h.x,h.y,h.z));mc.fontRendererObj.drawStringWithShadow(String.format("Hit distance: %.1f",d),r.getScaledWidth()/2+10,r.getScaledHeight()/2-4,0xffffff);}if(AimBowMod.crossHairState&&isSupportedAndActive())crosshair(r.getScaledWidth()/2-8,r.getScaledHeight()/2-8,!hits.isEmpty()&&hits.get(0).hitEntity!=null);}
+ private boolean isSupportedAndActive(){ItemStack h=mc.thePlayer.getHeldItem();if(h==null)return false;if(h.getItem()==Items.bow)return mc.thePlayer.isUsingItem();return h.getItem()==Items.snowball||h.getItem()==Items.egg||h.getItem()==Items.ender_pearl||h.getItem()==Items.experience_bottle||h.getItem()==Items.potionitem||h.getItem()==Items.fishing_rod;}
+ private void drawPath(){if(path.size()<2)return;double x=mc.getRenderManager().viewerPosX,y=mc.getRenderManager().viewerPosY,z=mc.getRenderManager().viewerPosZ;GlStateManager.pushMatrix();try{GlStateManager.disableTexture2D();GlStateManager.disableLighting();GlStateManager.enableBlend();GlStateManager.tryBlendFuncSeparate(770,771,1,0);GL11.glLineWidth(AimBowMod.lineWidth);WorldRenderer w=Tessellator.getInstance().getWorldRenderer();w.begin(GL11.GL_LINE_STRIP,DefaultVertexFormats.POSITION_COLOR);for(Vec3 p:path)w.pos(p.xCoord-x,p.yCoord-y,p.zCoord-z).color(AimBowMod.red/255F,AimBowMod.green/255F,AimBowMod.blue/255F,AimBowMod.alpha/255F).endVertex();Tessellator.getInstance().draw();}finally{GL11.glLineWidth(1);GlStateManager.color(1,1,1,1);GlStateManager.enableTexture2D();GlStateManager.disableBlend();GlStateManager.popMatrix();}}
+ private void drawFace(CollisionData h,float partial){Entity v=mc.getRenderViewEntity();if(v==null||h.sideHit==null)return;double vx=v.lastTickPosX+(v.posX-v.lastTickPosX)*partial,vy=v.lastTickPosY+(v.posY-v.lastTickPosY)*partial,vz=v.lastTickPosZ+(v.posZ-v.lastTickPosZ)*partial;BlockPos p=new BlockPos(h.x,h.y,h.z);AxisAlignedBB b=new AxisAlignedBB(p.getX(),p.getY(),p.getZ(),p.getX()+1,p.getY()+1,p.getZ()+1).expand(.002,.002,.002).offset(-vx,-vy,-vz);GlStateManager.pushMatrix();try{GlStateManager.disableTexture2D();GlStateManager.enableBlend();GlStateManager.depthMask(false);WorldRenderer w=Tessellator.getInstance().getWorldRenderer();w.begin(GL11.GL_QUADS,DefaultVertexFormats.POSITION_COLOR);face(w,b,h.sideHit);Tessellator.getInstance().draw();}finally{GlStateManager.depthMask(true);GlStateManager.enableTexture2D();GlStateManager.disableBlend();GlStateManager.popMatrix();}}
+ private void vertex(WorldRenderer w,double x,double y,double z){w.pos(x,y,z).color(AimBowMod.red/255F,AimBowMod.green/255F,AimBowMod.blue/255F,AimBowMod.alpha/255F).endVertex();}
+ private void face(WorldRenderer w,AxisAlignedBB b,EnumFacing f){if(f==EnumFacing.UP){vertex(w,b.minX,b.maxY,b.minZ);vertex(w,b.minX,b.maxY,b.maxZ);vertex(w,b.maxX,b.maxY,b.maxZ);vertex(w,b.maxX,b.maxY,b.minZ);}else if(f==EnumFacing.DOWN){vertex(w,b.minX,b.minY,b.minZ);vertex(w,b.maxX,b.minY,b.minZ);vertex(w,b.maxX,b.minY,b.maxZ);vertex(w,b.minX,b.minY,b.maxZ);}else if(f==EnumFacing.NORTH){vertex(w,b.minX,b.minY,b.minZ);vertex(w,b.minX,b.maxY,b.minZ);vertex(w,b.maxX,b.maxY,b.minZ);vertex(w,b.maxX,b.minY,b.minZ);}else if(f==EnumFacing.SOUTH){vertex(w,b.minX,b.minY,b.maxZ);vertex(w,b.maxX,b.minY,b.maxZ);vertex(w,b.maxX,b.maxY,b.maxZ);vertex(w,b.minX,b.maxY,b.maxZ);}else if(f==EnumFacing.WEST){vertex(w,b.minX,b.minY,b.minZ);vertex(w,b.minX,b.minY,b.maxZ);vertex(w,b.minX,b.maxY,b.maxZ);vertex(w,b.minX,b.maxY,b.minZ);}else{vertex(w,b.maxX,b.minY,b.minZ);vertex(w,b.maxX,b.maxY,b.minZ);vertex(w,b.maxX,b.maxY,b.maxZ);vertex(w,b.maxX,b.minY,b.maxZ);}}
+ private void crosshair(int x,int y,boolean hit){mc.getTextureManager().bindTexture(Gui.icons);GlStateManager.enableBlend();GlStateManager.color(hit?1:0,hit?0:1,0,1);WorldRenderer w=Tessellator.getInstance().getWorldRenderer();w.begin(GL11.GL_QUADS,DefaultVertexFormats.POSITION_TEX);float s=1F/256F;w.pos(x,y+16,0).tex(0,16*s).endVertex();w.pos(x+16,y+16,0).tex(16*s,16*s).endVertex();w.pos(x+16,y,0).tex(16*s,0).endVertex();w.pos(x,y,0).tex(0,0).endVertex();Tessellator.getInstance().draw();GlStateManager.color(1,1,1,1);GlStateManager.disableBlend();}
 }
