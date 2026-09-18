@@ -3,75 +3,45 @@ package net.famzangl.minecraft.aimbow;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.util.ChatComponentText;
-import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.client.registry.ClientRegistry;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent.ClientTickEvent;
 import net.minecraftforge.fml.common.FMLCommonHandler;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
 import org.lwjgl.input.Keyboard;
 
-import static net.famzangl.minecraft.aimbow.AimBowMod.TrajectoryState;
+public final class AimBowController {
+    private final KeyBinding autoAimKey = new KeyBinding("Auto aim", Keyboard.KEY_Y, "AimBow");
+    private final KeyBinding trajectoryKey = new KeyBinding("Toggle trajectory", Keyboard.KEY_J, "AimBow");
+    private final AimbowGui gui;
+    private boolean initialized;
 
-public class AimBowController {
-	protected static final KeyBinding autoAimKey = new KeyBinding("Auto aim",
-			Keyboard.getKeyIndex("Y"), "AimBow");
-	protected static final KeyBinding toggleTrajectoryKey = new KeyBinding("Toggle Trajectory",
-			Keyboard.getKeyIndex("J"), "AimBow");
+    public AimBowController(AimbowGui gui) { this.gui = gui; }
 
-	static {
-		ClientRegistry.registerKeyBinding(autoAimKey);
-		ClientRegistry.registerKeyBinding(toggleTrajectoryKey);
-	}
+    public void initialize() {
+        if (initialized) return;
+        ClientRegistry.registerKeyBinding(autoAimKey);
+        ClientRegistry.registerKeyBinding(trajectoryKey);
+        FMLCommonHandler.instance().bus().register(this);
+        initialized = true;
+    }
 
-	private AimbowGui gui;
-	private boolean initialized;
+    @SubscribeEvent
+    public void onClientTick(TickEvent.ClientTickEvent event) {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (event.phase != TickEvent.Phase.END || mc.thePlayer == null || mc.currentScreen != null) return;
+        while (autoAimKey.isPressed()) {
+            if (!AimBowMod.trajectoryState) chat("Enable trajectory first: /aimbow");
+            else { gui.setAutoAim(!gui.isAutoAim()); chat("Auto aim: " + (gui.isAutoAim() ? "On" : "Off")); }
+        }
+        while (trajectoryKey.isPressed()) {
+            AimBowMod.trajectoryState = !AimBowMod.trajectoryState;
+            if (!AimBowMod.trajectoryState) gui.setAutoAim(false);
+            AimBowMod.saveConfig();
+            chat("Trajectory: " + (AimBowMod.trajectoryState ? "On" : "Off"));
+        }
+    }
 
-	// Fixed version removes the GUI replacement and uses proper event registration
-	public void initialize() {
-		if (!initialized) {
-			this.gui = AimBowMod.gui;
-			// Register both the controller and GUI with the event bus
-			FMLCommonHandler.instance().bus().register(this);
-			MinecraftForge.EVENT_BUS.register(gui);
-			initialized = true;
-		}
-	}
-
-	@SubscribeEvent
-	public void onPlayerTick(ClientTickEvent evt) {
-		if (evt.phase != ClientTickEvent.Phase.START
-				|| Minecraft.getMinecraft().thePlayer == null) {
-			return;
-		}
-
-		if (autoAimKey.isPressed()) {
-			handleAutoAimToggle();
-		}
-		
-		if (toggleTrajectoryKey.isPressed()) {
-			handleTrajectoryToggle();
-		}
-	}
-
-	private void handleAutoAimToggle() {
-		if (TrajectoryState) {
-			gui.autoAim = !gui.autoAim;
-			sendChatMessage("Autoaim: " + (gui.autoAim ? "On" : "Off"));
-		} else {
-			sendChatMessage("Enable Trajectory First! /aimbow");
-		}
-	}
-
-	private void handleTrajectoryToggle() {
-		AimBowMod.TrajectoryState = !AimBowMod.TrajectoryState;
-		sendChatMessage("Trajectory: " + (AimBowMod.TrajectoryState ? "On" : "Off"));
-	}
-
-	private void sendChatMessage(String message) {
-		Minecraft.getMinecraft().thePlayer.addChatMessage(
-				new ChatComponentText(message)
-		);
-	}
-
-	// Remove all GUI replacement code and position calculation methods
+    private void chat(String text) {
+        Minecraft.getMinecraft().thePlayer.addChatMessage(new ChatComponentText("[AimBow] " + text));
+    }
 }

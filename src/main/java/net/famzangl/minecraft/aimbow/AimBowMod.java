@@ -1,168 +1,55 @@
 package net.famzangl.minecraft.aimbow;
 
-import net.famzangl.minecraft.aimbow.aiming.RayData;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.Tessellator;
-import net.minecraft.client.renderer.WorldRenderer;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
-import net.minecraft.entity.Entity;
-import net.minecraft.util.AxisAlignedBB;
-import net.minecraft.util.BlockPos;
-import net.minecraft.util.Vec3;
+import java.io.File;
 import net.minecraftforge.client.ClientCommandHandler;
-import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.Mod.EventHandler;
-import net.minecraftforge.fml.common.Mod.Instance;
 import net.minecraftforge.fml.common.event.FMLInitializationEvent;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import org.lwjgl.opengl.GL11;
 
-import java.io.File;
+@Mod(modid = AimBowMod.MOD_ID, name = "AimBow", version = AimBowMod.VERSION, clientSideOnly = true, acceptedMinecraftVersions = "[1.8.9]")
+public final class AimBowMod {
+    public static final String MOD_ID = "AimBow";
+    public static final String VERSION = "0.1.1";
+    private static Configuration config;
 
-import static net.famzangl.minecraft.aimbow.AimbowGui.renderTrajectory;
+    public static int red = 255, green = 255, blue = 255, alpha = 255, lineWidth = 3;
+    public static boolean crossHairState, blockDistanceState, trajectoryState = true;
+    public static AimbowGui gui;
 
-@Mod(modid="AB", name = "AB", version = "0.1.0")
-public class AimBowMod {
+    @Mod.EventHandler
+    public void init(FMLInitializationEvent event) {
+        config = new Configuration(new File("config/AimBowColorGui.cfg"));
+        loadConfig();
+        gui = new AimbowGui();
+        MinecraftForge.EVENT_BUS.register(gui);
+        new AimBowController(gui).initialize();
+        ClientCommandHandler.instance.registerCommand(new AimBowCommand());
+    }
 
-	@Instance(value = "AB")
-	public static AimBowMod instance;
-	public static AimbowGui gui;
+    private static void loadConfig() {
+        config.load();
+        red = config.getInt("Red", "Color", 255, 0, 255, "Red component");
+        green = config.getInt("Green", "Color", 255, 0, 255, "Green component");
+        blue = config.getInt("Blue", "Color", 255, 0, 255, "Blue component");
+        alpha = config.getInt("Alpha", "Color", 255, 0, 255, "Alpha component");
+        lineWidth = config.getInt("Width", "Color", 3, 1, 10, "Trajectory line width");
+        crossHairState = config.getBoolean("CrossHairState", "General", false, "Draw custom hit crosshair");
+        blockDistanceState = config.getBoolean("BlockDistance", "General", false, "Display hit distance");
+        trajectoryState = config.getBoolean("Trajectory", "General", true, "Display projectile trajectory");
+        if (config.hasChanged()) config.save();
+    }
 
-	public static int red;
-	public static int green;
-	public static int blue;
-	public static int alpha;
-	public static int width;
-	public static boolean crossHairState;
-	public static boolean blockDistanceState;
-	public static boolean TrajectoryState;
-
-	@EventHandler
-	public void init(FMLInitializationEvent event) {
-		final net.famzangl.minecraft.aimbow.AimBowController controller = new net.famzangl.minecraft.aimbow.AimBowController();
-		
-
-		Configuration config = new Configuration(new File("config/AimBowColorGui.cfg"));
-		config.load();
-
-		ClientCommandHandler.instance.registerCommand(new AimBowCommand());
-		MinecraftForge.EVENT_BUS.register(this);
-		gui = new AimbowGui();
-		controller.initialize();
-
-		red = config.get("Color", "Red", 255).getInt();
-		green = config.get("Color", "Green", 255).getInt();
-		blue = config.get("Color", "Blue", 255).getInt();
-		alpha = config.get("Color", "Alpha", 255).getInt();
-		width = config.get("Color", "Width", 3).getInt();
-		crossHairState = config.get("General", "CrossHairState", false).getBoolean();
-		blockDistanceState = config.get("General", "HighlightLandingBlockState", false).getBoolean();
-		TrajectoryState = config.get("General", "Trajectory", true).getBoolean();
-	}
-
-	public static String getVersion() {
-		return AimBowMod.class.getAnnotation(Mod.class).version();
-	}
-
-	@SubscribeEvent
-	public void onRender3D(RenderWorldLastEvent event) {
-		if (Minecraft.getMinecraft().thePlayer != null) {
-			drawCollisionBox(event.partialTicks);
-		}
-	}
-
-	// Removed the redundant onRenderWorldLast method that was clearing trajectory
-
-	public void drawCollisionBox(float partialTicks) {
-		if (!RayData.trajectory.isEmpty()) {
-			// Get the last position from the trajectory
-			Vec3 lastPos = RayData.trajectory.get(RayData.trajectory.size() - 1);
-
-			// Convert Vec3 to BlockPos
-			BlockPos endBlock = new BlockPos(lastPos.xCoord, lastPos.yCoord, lastPos.zCoord);
-
-			// Draw the box around this block
-			drawBlockHighlight(endBlock, partialTicks);
-		} else {
-			return;
-		}
-	}
-
-	private void drawBlockHighlight(BlockPos pos, float partialTicks) {
-		Entity viewer = Minecraft.getMinecraft().getRenderViewEntity();
-		double viewerX = viewer.lastTickPosX + (viewer.posX - viewer.lastTickPosX) * partialTicks;
-		double viewerY = viewer.lastTickPosY + (viewer.posY - viewer.lastTickPosY) * partialTicks;
-		double viewerZ = viewer.lastTickPosZ + (viewer.posZ - viewer.lastTickPosZ) * partialTicks;
-
-		GlStateManager.pushMatrix();
-		GlStateManager.enableBlend();
-		GlStateManager.tryBlendFuncSeparate(770, 771, 1, 0);
-		GlStateManager.disableTexture2D();
-		GlStateManager.depthMask(false);
-		GL11.glLineWidth(2.0f);
-
-		// Convert color values from 0-255 range to 0.0-1.0 range
-		float r = red / 255.0f;
-		float g = green / 255.0f;
-		float b = blue / 255.0f;
-		float a = alpha / 255.0f;
-
-		GL11.glColor4f(r, g, b, a);
-
-		// Draw box
-		Tessellator tessellator = Tessellator.getInstance();
-		WorldRenderer worldrenderer = tessellator.getWorldRenderer();
-
-		AxisAlignedBB box = new AxisAlignedBB(
-				pos.getX(), pos.getY(), pos.getZ(),
-				pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1
-		).expand(0.002, 0.002, 0.002)
-				.offset(-viewerX, -viewerY, -viewerZ);
-
-		// Draw outline
-		worldrenderer.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION);
-
-		// Bottom
-		worldrenderer.pos(box.minX, box.minY, box.minZ).endVertex();
-		worldrenderer.pos(box.maxX, box.minY, box.minZ).endVertex();
-		worldrenderer.pos(box.maxX, box.minY, box.minZ).endVertex();
-		worldrenderer.pos(box.maxX, box.minY, box.maxZ).endVertex();
-		worldrenderer.pos(box.maxX, box.minY, box.maxZ).endVertex();
-		worldrenderer.pos(box.minX, box.minY, box.maxZ).endVertex();
-		worldrenderer.pos(box.minX, box.minY, box.maxZ).endVertex();
-		worldrenderer.pos(box.minX, box.minY, box.minZ).endVertex();
-
-		// Top
-		worldrenderer.pos(box.minX, box.maxY, box.minZ).endVertex();
-		worldrenderer.pos(box.maxX, box.maxY, box.minZ).endVertex();
-		worldrenderer.pos(box.maxX, box.maxY, box.minZ).endVertex();
-		worldrenderer.pos(box.maxX, box.maxY, box.maxZ).endVertex();
-		worldrenderer.pos(box.maxX, box.maxY, box.maxZ).endVertex();
-		worldrenderer.pos(box.minX, box.maxY, box.maxZ).endVertex();
-		worldrenderer.pos(box.minX, box.maxY, box.maxZ).endVertex();
-		worldrenderer.pos(box.minX, box.maxY, box.minZ).endVertex();
-
-		// Verticals
-		worldrenderer.pos(box.minX, box.minY, box.minZ).endVertex();
-		worldrenderer.pos(box.minX, box.maxY, box.minZ).endVertex();
-		worldrenderer.pos(box.maxX, box.minY, box.minZ).endVertex();
-		worldrenderer.pos(box.maxX, box.maxY, box.minZ).endVertex();
-		worldrenderer.pos(box.maxX, box.minY, box.maxZ).endVertex();
-		worldrenderer.pos(box.maxX, box.maxY, box.maxZ).endVertex();
-		worldrenderer.pos(box.minX, box.minY, box.maxZ).endVertex();
-		worldrenderer.pos(box.minX, box.maxY, box.maxZ).endVertex();
-
-		tessellator.draw();
-
-		// Reset GL states
-		GL11.glLineWidth(1.0F);
-		GlStateManager.depthMask(true);
-		GlStateManager.enableTexture2D();
-		GlStateManager.disableBlend();
-		GlStateManager.popMatrix();
-	}
+    public static void saveConfig() {
+        if (config == null) return;
+        config.get("Color", "Red", 255).set(red);
+        config.get("Color", "Green", 255).set(green);
+        config.get("Color", "Blue", 255).set(blue);
+        config.get("Color", "Alpha", 255).set(alpha);
+        config.get("Color", "Width", 3).set(lineWidth);
+        config.get("General", "CrossHairState", false).set(crossHairState);
+        config.get("General", "BlockDistance", false).set(blockDistanceState);
+        config.get("General", "Trajectory", true).set(trajectoryState);
+        config.save();
+    }
 }

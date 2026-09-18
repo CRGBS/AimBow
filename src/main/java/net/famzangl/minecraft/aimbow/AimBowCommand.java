@@ -3,34 +3,21 @@ package net.famzangl.minecraft.aimbow;
 import net.minecraft.client.Minecraft;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent;
 
-public class AimBowCommand extends CommandBase {
+public final class AimBowCommand extends CommandBase {
     @Override
-    public String getCommandName() {
-        return "aimbow";
-    }
+    public String getCommandName() { return "aimbow"; }
 
     @Override
-    public String getCommandUsage(ICommandSender sender) {
-        return "/aimbow";
-    }
-
-    public boolean canCommandSenderUseCommand(ICommandSender sender) {
-        return true;
-    }
+    public String getCommandUsage(ICommandSender sender) { return "/aimbow"; }
 
     @Override
-    public void processCommand(ICommandSender sender, String[] args){
-        MinecraftForge.EVENT_BUS.register(this);
-    }
+    public boolean canCommandSenderUseCommand(ICommandSender sender) { return true; }
 
-    @SubscribeEvent
-    public void onClientTick(TickEvent.ClientTickEvent event) {
+    @Override
+    public void processCommand(ICommandSender sender, String[] args) {
+        // ClientCommandHandler invokes this on the client thread, so no temporary
+        // event-bus registration is needed (which previously allowed duplicates).
         Minecraft.getMinecraft().displayGuiScreen(new AimBowCommandGui());
-        MinecraftForge.EVENT_BUS.unregister(this);
-
     }
 }

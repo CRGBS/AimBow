@@ -1,158 +1,61 @@
-/*******************************************************************************
- * This file is part of Minebot.
- *
- * Minebot is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Minebot is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Minebot.  If not, see <http://www.gnu.org/licenses/>.
- *******************************************************************************/
 package net.famzangl.minecraft.aimbow.aiming;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
-
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.projectile.EntityArrow;
 import net.minecraft.util.MathHelper;
 import net.minecraft.util.Vec3;
 
 public abstract class RayData extends TickingEntity {
-	protected boolean dead;
-	protected float prevRotationYaw;
-	protected float prevRotationPitch;
+    private static final Random RANDOM = new Random();
+    protected boolean dead;
+    protected float prevRotationYaw, prevRotationPitch;
+    private List<Vec3> trajectorySink = Collections.emptyList();
 
-	public static List<Vec3> trajectory = new ArrayList();
+    public void setTrajectorySink(List<Vec3> sink) { trajectorySink = sink == null ? Collections.<Vec3>emptyList() : sink; }
+    protected final void recordPosition() { trajectorySink.add(new Vec3(posX, posY, posZ)); }
 
-	public void setLocationAndAngles(double posX, double posY, double posZ,
-			float rotationYaw, float rotationPitch) {
-		this.rotationYaw = rotationYaw;
-		this.rotationPitch = rotationPitch;
-		this.setPosition(posX, posY, posZ);
-	}
-
-	/**
-	 * 
-	 * @param shootingEntity
-	 * @param force
-	 * @param lookVec
-	 * @see EntityArrow#setThrowableHeading(double, double, double, float, float)
-	 */
-	public void shootFromTowards(Entity shootingEntity, Vec3 lookVec) {
-		final float yaw = (float) (Math.atan2(lookVec.zCoord, lookVec.xCoord) * 180.0D / Math.PI) - 90.0F;
-		final float pitch = (float) -(Math.atan2(lookVec.yCoord,
-				Math.sqrt(lookVec.xCoord * lookVec.xCoord + lookVec.zCoord * lookVec.zCoord)) * 180.0D / Math.PI);
-		setLocationAndAngles(shootingEntity.posX, shootingEntity.posY
-				+ shootingEntity.getEyeHeight(), shootingEntity.posZ,
-				yaw, pitch);
-		shoot();
-	}
-	
-	/**
-	 * 
-	 * @param entity
-	 * @param force
-	 * @see EntityArrow#EntityArrow(net.minecraft.world.World, EntityLivingBase, float)
-	 */
-	public void shootFrom(Entity entity) {
-		setLocationAndAngles(entity.posX, entity.posY
-				+ entity.getEyeHeight(), entity.posZ,
-				entity.rotationYaw, entity.rotationPitch);
-		shoot();
-	}
-
-	/**
-	 * Compute the movement for the next tick.
-	 */
-	@Override
-	public void moveTick() {
-		super.moveTick();
-
-		float f2 = MathHelper.sqrt_double(this.motionX * this.motionX
-				+ this.motionZ * this.motionZ);
-		this.rotationYaw = (float) (Math.atan2(this.motionX, this.motionZ) * 180.0D / Math.PI);
-
-		for (this.rotationPitch = (float) (Math.atan2(this.motionY, f2) * 180.0D / Math.PI); this.rotationPitch
-				- this.prevRotationPitch < -180.0F; this.prevRotationPitch -= 360.0F) {
-			;
-		}
-
-		while (this.rotationPitch - this.prevRotationPitch >= 180.0F) {
-			this.prevRotationPitch += 360.0F;
-		}
-
-		while (this.rotationYaw - this.prevRotationYaw < -180.0F) {
-			this.prevRotationYaw -= 360.0F;
-		}
-
-		while (this.rotationYaw - this.prevRotationYaw >= 180.0F) {
-			this.prevRotationYaw += 360.0F;
-		}
-
-		this.rotationPitch = this.prevRotationPitch
-				+ (this.rotationPitch - this.prevRotationPitch) * 0.2F;
-		this.rotationYaw = this.prevRotationYaw
-				+ (this.rotationYaw - this.prevRotationYaw) * 0.2F;
-		float f3 = 0.99F;
-		float f1 = getGravity();
-
-		this.motionX *= f3;
-		this.motionY *= f3;
-		this.motionZ *= f3;
-		this.motionY -= f1;
-		this.setPosition(this.posX, this.posY, this.posZ);
-
-		trajectory.add(new Vec3(this.posX, this.posY, this.posZ));
-
-	}
-
-	protected abstract float getGravity();
-
-	public abstract void shoot();
-
-	public void setThrowableHeading(double motionX, double motionY,
-			double motionZ, double force, float randomInfluence) {
-		float f2 = MathHelper.sqrt_double(motionX * motionX + motionY * motionY
-				+ motionZ * motionZ);
-		motionX /= f2;
-		motionY /= f2;
-		motionZ /= f2;
-		Random rand = new Random();
-		motionX += rand.nextGaussian() * (rand.nextBoolean() ? -1 : 1)
-				* 0.007499999832361937D * randomInfluence;
-		motionY += rand.nextGaussian() * (rand.nextBoolean() ? -1 : 1)
-				* 0.007499999832361937D * randomInfluence;
-		motionZ += rand.nextGaussian() * (rand.nextBoolean() ? -1 : 1)
-				* 0.007499999832361937D * randomInfluence;
-		motionX *= force;
-		motionY *= force;
-		motionZ *= force;
-		this.motionX = motionX;
-		this.motionY = motionY;
-		this.motionZ = motionZ;
-		float f3 = MathHelper
-				.sqrt_double(motionX * motionX + motionZ * motionZ);
-		this.prevRotationYaw = this.rotationYaw = (float) (Math.atan2(motionX,
-				motionZ) * 180.0D / Math.PI);
-		this.prevRotationPitch = this.rotationPitch = (float) (Math.atan2(
-				motionY, f3) * 180.0D / Math.PI);
-	}
-	
-	public boolean isDead() {
-		return dead;
-	}
-
-	public void setDead(boolean dead) {
-		this.dead = dead;
-	}
-
+    public void setLocationAndAngles(double x, double y, double z, float yaw, float pitch) {
+        rotationYaw = yaw; rotationPitch = pitch; setPosition(x, y, z);
+    }
+    public void shootFromTowards(Entity entity, Vec3 look) {
+        float yaw = (float)Math.toDegrees(Math.atan2(look.zCoord, look.xCoord)) - 90.0F;
+        float pitch = (float)-Math.toDegrees(Math.atan2(look.yCoord, Math.sqrt(look.xCoord * look.xCoord + look.zCoord * look.zCoord)));
+        setLocationAndAngles(entity.posX, entity.posY + entity.getEyeHeight(), entity.posZ, yaw, pitch); shoot();
+    }
+    public void shootFrom(Entity entity) {
+        setLocationAndAngles(entity.posX, entity.posY + entity.getEyeHeight(), entity.posZ, entity.rotationYaw, entity.rotationPitch); shoot();
+    }
+    @Override public void moveTick() {
+        super.moveTick();
+        float horizontal = MathHelper.sqrt_double(motionX * motionX + motionZ * motionZ);
+        prevRotationYaw = rotationYaw;
+        prevRotationPitch = rotationPitch;
+        rotationYaw = (float)Math.toDegrees(Math.atan2(motionX, motionZ));
+        rotationPitch = (float)Math.toDegrees(Math.atan2(motionY, horizontal));
+        motionX *= 0.99F; motionY *= 0.99F; motionZ *= 0.99F; motionY -= getGravity();
+        setPosition(posX, posY, posZ);
+        recordPosition();
+    }
+    protected abstract float getGravity();
+    public abstract void shoot();
+    public void setThrowableHeading(double x, double y, double z, double force, float randomInfluence) {
+        double length = Math.sqrt(x*x + y*y + z*z);
+        if (length < 1.0E-7D) { motionX = motionY = motionZ = 0; return; }
+        x /= length; y /= length; z /= length;
+        if (randomInfluence != 0) {
+            x += RANDOM.nextGaussian() * 0.0075D * randomInfluence;
+            y += RANDOM.nextGaussian() * 0.0075D * randomInfluence;
+            z += RANDOM.nextGaussian() * 0.0075D * randomInfluence;
+        }
+        motionX=x*force; motionY=y*force; motionZ=z*force;
+        float horizontal = MathHelper.sqrt_double(motionX*motionX + motionZ*motionZ);
+        prevRotationYaw = rotationYaw = (float)Math.toDegrees(Math.atan2(motionX, motionZ));
+        prevRotationPitch = rotationPitch = (float)Math.toDegrees(Math.atan2(motionY, horizontal));
+    }
+    public boolean isDead() { return dead; }
+    public void setDead(boolean value) { dead = value; }
 }

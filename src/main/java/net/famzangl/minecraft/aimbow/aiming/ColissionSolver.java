@@ -1,24 +1,8 @@
-/*******************************************************************************
- * This file is part of Minebot.
- *
- * Minebot is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Minebot is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Minebot.  If not, see <http://www.gnu.org/licenses/>.
- *******************************************************************************/
 package net.famzangl.minecraft.aimbow.aiming;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-
 import net.famzangl.minecraft.aimbow.aiming.Bow.BowColissionSolver;
 import net.famzangl.minecraft.aimbow.aiming.EnderPearl.EnderPearlColissionSolver;
 import net.famzangl.minecraft.aimbow.aiming.Fishing.FishingColissionSolver;
@@ -34,104 +18,49 @@ import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.Vec3;
 
 public abstract class ColissionSolver {
+    private static final int MAX_TICKS = 200;
+    protected final Minecraft minecraft;
+    protected final EntityLivingBase shootingEntity;
 
-	protected final Minecraft minecraft;
-	protected final EntityLivingBase shootingEntity;
-	private final ArrayList<RayData> simulated = new ArrayList<RayData>();
-	private ArrayList<ColissionData> colissions;
+    protected ColissionSolver(Minecraft mc, EntityLivingBase shooter) { minecraft=mc; shootingEntity=shooter; }
+    protected abstract MovingObjectPosition computeHit(RayData ray, int tick);
+    protected abstract RayData generateRayData();
+    public abstract float getVelocity();
 
-	public ColissionSolver(Minecraft mc, EntityLivingBase renderViewEntity) {
-		super();
-		minecraft = mc;
-		shootingEntity = renderViewEntity;
-	}
-
-	private void runTick(int tick) {
-		for (RayData s : simulated) {
-			if (s.isDead()) {
-				continue;
-			}
-			s.moveTick();
-
-			MovingObjectPosition hit = computeHit(s, tick);
-			if (hit != null) {
-				// System.out.println("Hit: " + hit.entityHit + " at " +
-				// hit.hitVec.xCoord + ","+
-				// hit.hitVec.yCoord +"," + hit.hitVec.zCoord + "," +
-				// hit.typeOfHit);
-				colissions.add(new ColissionData(hit.hitVec.xCoord,
-						hit.hitVec.yCoord, hit.hitVec.zCoord, hit.entityHit,
-						tick));
-				s.setDead(true);
-			}
-
-		}
-	}
-
-	protected abstract MovingObjectPosition computeHit(RayData s, int tick);
-
-	private void generateRays(Entity entity) {
-		simulated.clear();
-		RayData data = generateRayData();
-		if (data != null) {
-			data.shootFrom(entity);
-			simulated.add(data);
-		}
-	}
-
-	public ArrayList<ColissionData> computeCurrentColissionPoints() {
-		colissions = new ArrayList<ColissionData>();
-		generateRays(minecraft.getRenderViewEntity());
-		run();
-		return colissions;
-	}
-
-	public ArrayList<ColissionData> computeColissionWithLook(Vec3 look) {
-		colissions = new ArrayList<ColissionData>();
-		simulated.clear();
-		RayData data = generateRayData();
-		if (data != null) {
-			data.shootFromTowards(shootingEntity, look);
-			simulated.add(data);
-		}
-		run();
-		return colissions;
-	}
-
-	protected abstract RayData generateRayData();
-
-	private void run() {
-		for (int i = 0; i < 200; i++) {
-			runTick(i);
-		}
-	}
-
-	public static ColissionSolver forItem(ItemStack heldItem, Minecraft mc) {
-		if (heldItem == null) {
-			return null;
-		} else if (heldItem.getItem() == Items.snowball ||
-				heldItem.getItem() == Items.egg) {
-			return new ThrowableColissionSolver(mc, (EntityLivingBase) mc.getRenderViewEntity());
-		} else if (heldItem.getItem() == Items.ender_pearl) {
-			return new EnderPearlColissionSolver(mc, (EntityLivingBase) mc.getRenderViewEntity());
-		} else if (heldItem.getItem() == Items.experience_bottle ||
-				(heldItem.getItem() == Items.potionitem && ItemPotion.isSplash(heldItem.getMetadata()))) {
-			return new PotionColissionSolver(mc, (EntityLivingBase) mc.getRenderViewEntity());
-		} else if (heldItem.getItem() == Items.bow) {
-			return new BowColissionSolver(mc, (EntityLivingBase) mc.getRenderViewEntity());
-		} else if (heldItem.getItem() == Items.fishing_rod) {
-			return new FishingColissionSolver(mc, (EntityLivingBase) mc.getRenderViewEntity());
-		} else {
-			// Default fallback for any other throwable items
-			// This ensures trajectory works for items not explicitly supported
-			return null;
-		}
-	}
-
-	public float getGravity() {
-		RayData data = generateRayData();
-		return data != null ? data.getGravity() : 0.03f;
-	}
-
-	public abstract float getVelocity();
+    public List<ColissionData> computeCurrentColissionPoints(List<Vec3> trajectory) {
+        Entity view = minecraft.getRenderViewEntity();
+        if (view == null || minecraft.theWorld == null) return Collections.emptyList();
+        RayData ray = generateRayData();
+        if (ray == null) return Collections.emptyList();
+        ray.setTrajectorySink(trajectory); ray.shootFrom(view); return run(ray);
+    }
+    public List<ColissionData> computeCurrentColissionPoints() { return computeCurrentColissionPoints(new ArrayList<Vec3>()); }
+    public List<ColissionData> computeColissionWithLook(Vec3 look) {
+        if (shootingEntity == null || look == null || minecraft.theWorld == null) return Collections.emptyList();
+        RayData ray=generateRayData(); if (ray==null) return Collections.emptyList();
+        ray.shootFromTowards(shootingEntity, look); return run(ray);
+    }
+    private List<ColissionData> run(RayData ray) {
+        List<ColissionData> hits=new ArrayList<ColissionData>(1);
+        for(int tick=0; tick<MAX_TICKS && !ray.isDead(); tick++) {
+            ray.moveTick();
+            MovingObjectPosition hit=computeHit(ray,tick);
+            if(hit!=null && hit.hitVec!=null) {
+                hits.add(new ColissionData(hit.hitVec.xCoord,hit.hitVec.yCoord,hit.hitVec.zCoord,hit.entityHit,tick));
+                ray.setDead(true);
+            }
+        }
+        return hits;
+    }
+    public static ColissionSolver forItem(ItemStack stack, Minecraft mc) {
+        if(stack==null || mc==null || !(mc.getRenderViewEntity() instanceof EntityLivingBase)) return null;
+        EntityLivingBase shooter=(EntityLivingBase)mc.getRenderViewEntity();
+        if(stack.getItem()==Items.snowball || stack.getItem()==Items.egg) return new ThrowableColissionSolver(mc,shooter);
+        if(stack.getItem()==Items.ender_pearl) return new EnderPearlColissionSolver(mc,shooter);
+        if(stack.getItem()==Items.experience_bottle || (stack.getItem()==Items.potionitem && ItemPotion.isSplash(stack.getMetadata()))) return new PotionColissionSolver(mc,shooter);
+        if(stack.getItem()==Items.bow) return new BowColissionSolver(mc,shooter);
+        if(stack.getItem()==Items.fishing_rod) return new FishingColissionSolver(mc,shooter);
+        return null;
+    }
+    public float getGravity() { RayData ray=generateRayData(); return ray==null ? 0.03F : ray.getGravity(); }
 }

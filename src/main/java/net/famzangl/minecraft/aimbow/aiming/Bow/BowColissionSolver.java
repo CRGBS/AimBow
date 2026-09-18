@@ -1,23 +1,6 @@
-/*******************************************************************************
- * This file is part of Minebot.
- *
- * Minebot is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Minebot is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Minebot.  If not, see <http://www.gnu.org/licenses/>.
- *******************************************************************************/
 package net.famzangl.minecraft.aimbow.aiming.Bow;
 
 import java.util.List;
-
 import net.famzangl.minecraft.aimbow.aiming.ColissionSolver;
 import net.famzangl.minecraft.aimbow.aiming.RayData;
 import net.minecraft.client.Minecraft;
@@ -29,85 +12,35 @@ import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.util.Vec3;
 
-/**
- * This is an incremental colission solver.
- * <p>
- * It can simulate multiple entities and detect which one is hit.
- * <p>
- * It uses a list of rays.
- * 
- * @author michael
- *
- */
-public class BowColissionSolver extends ColissionSolver {
-
-	public static float force;
-	public BowColissionSolver(Minecraft mc, EntityLivingBase renderViewEntity) {
-		super(mc, renderViewEntity);
-	}
-
-	protected MovingObjectPosition computeHit(RayData s, int tick) {
-		Vec3 vec31 = new Vec3(s.prevPosX, s.prevPosY, s.prevPosZ);
-		Vec3 vec3 = new Vec3(s.posX, s.posY, s.posZ);
-		MovingObjectPosition hit = minecraft.theWorld.rayTraceBlocks(vec31,
-				vec3, false, true, false);
-
-		vec31 = new Vec3(s.prevPosX, s.prevPosY, s.prevPosZ);
-		if (hit == null) {
-			vec3 = new Vec3(s.posX, s.posY, s.posZ);
-		} else {
-			vec3 = new Vec3(hit.hitVec.xCoord, hit.hitVec.yCoord,
-					hit.hitVec.zCoord);
-		}
-
-		double d0 = 0.0D;
-		AxisAlignedBB bbox = s.boundingBox.addCoord(s.motionX, s.motionY,
-				s.motionZ).expand(1.0D, 1.0D, 1.0D);
-		List<Entity> entities = minecraft.theWorld.getEntitiesWithinAABB(
-				Entity.class, bbox);
-		// System.out.println("BBox: " + bbox);
-		for (Entity e : entities) {
-			if (e.canBeCollidedWith()
-					&& (e != this.shootingEntity || tick >= 5)) {
-				float f1 = 0.3F;
-				AxisAlignedBB axisalignedbb1 = e.getEntityBoundingBox().expand(
-						(double) f1, (double) f1, (double) f1);
-				MovingObjectPosition movingobjectposition1 = axisalignedbb1
-						.calculateIntercept(vec31, vec3);
-
-				if (movingobjectposition1 != null) {
-					double d1 = vec31.distanceTo(movingobjectposition1.hitVec);
-
-					if (d1 < d0 || d0 == 0.0D) {
-						hit = movingobjectposition1;
-						hit.entityHit = e;
-						d0 = d1;
-					}
-				}
-			}
-		}
-		return hit;
-	}
-	
-	@Override
-	public float getVelocity() {
-		return 3;
-	}
-	
-	@Override
-	public RayData generateRayData() {
-		int useDuration = Minecraft.getMinecraft().thePlayer.getItemInUseDuration();
-
-		ItemStack itemStack = Minecraft.getMinecraft().thePlayer.getItemInUse(); // Get the item in the player's main hand
-		boolean b = itemStack != null && itemStack.getItem() instanceof ItemBow; // Check if the item is a bow
-
-		if (b) {
-			float drawTime = Math.min(useDuration, 20) / 20.0f;
-			force = 2 * drawTime * drawTime * drawTime;
-		} else {
-			force = 2;
-		}
-
-		return new BowRayData(force);
-	}
+public final class BowColissionSolver extends ColissionSolver {
+    private float lastForce=1.0F;
+    public BowColissionSolver(Minecraft mc, EntityLivingBase shooter) { super(mc,shooter); }
+    @Override protected MovingObjectPosition computeHit(RayData ray,int tick) {
+        Vec3 start=new Vec3(ray.prevPosX,ray.prevPosY,ray.prevPosZ);
+        Vec3 end=new Vec3(ray.posX,ray.posY,ray.posZ);
+        MovingObjectPosition closest=minecraft.theWorld.rayTraceBlocks(start,end,false,true,false);
+        if(closest!=null) end=closest.hitVec;
+        double best=closest==null ? Double.MAX_VALUE : start.distanceTo(closest.hitVec);
+        AxisAlignedBB area=ray.boundingBox.addCoord(ray.motionX,ray.motionY,ray.motionZ).expand(1,1,1);
+        List<Entity> entities=minecraft.theWorld.getEntitiesWithinAABB(Entity.class,area);
+        for(Entity entity:entities) {
+            if(!entity.canBeCollidedWith() || (entity==shootingEntity && tick<5)) continue;
+            MovingObjectPosition candidate=entity.getEntityBoundingBox().expand(0.3D,0.3D,0.3D).calculateIntercept(start,end);
+            if(candidate!=null) {
+                double distance=start.distanceTo(candidate.hitVec);
+                if(distance<best) { candidate.entityHit=entity; closest=candidate; best=distance; }
+            }
+        }
+        return closest;
+    }
+    @Override public float getVelocity() { return lastForce*1.5F; }
+    @Override protected RayData generateRayData() {
+        ItemStack using=minecraft.thePlayer==null ? null : minecraft.thePlayer.getItemInUse();
+        if(using!=null && using.getItem() instanceof ItemBow) {
+            int duration=minecraft.thePlayer.getItemInUseDuration();
+            float draw=duration/20.0F; draw=(draw*draw+draw*2.0F)/3.0F;
+            lastForce=Math.min(draw,1.0F);
+        } else lastForce=1.0F;
+        return new BowRayData(lastForce);
+    }
 }
