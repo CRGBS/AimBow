@@ -265,13 +265,23 @@ public class AimbowGui {
             tessellator.draw();
 
         } finally {
-
             GL11.glLineWidth(1.0F);
-
-            GlStateManager.enableLighting();
+        
+            GlStateManager.color(
+                    1.0F,
+                    1.0F,
+                    1.0F,
+                    1.0F
+            );
+        
+            GlStateManager.depthMask(true);
+            GlStateManager.enableDepth();
             GlStateManager.enableTexture2D();
             GlStateManager.disableBlend();
-
+        
+            // RenderWorldLast 結束後不要強制打開 lighting
+            GlStateManager.disableLighting();
+        
             GlStateManager.popMatrix();
         }
     }
@@ -738,22 +748,23 @@ public class AimbowGui {
             tessellator.draw();
 
         } finally {
-
             GL11.glLineWidth(1.0F);
-
+        
             GlStateManager.color(
                     1.0F,
                     1.0F,
                     1.0F,
                     1.0F
             );
-
+        
             GlStateManager.depthMask(true);
             GlStateManager.enableDepth();
             GlStateManager.enableTexture2D();
             GlStateManager.disableBlend();
-            GlStateManager.enableLighting();
-
+        
+            // RenderWorldLast 結束後不要強制打開 lighting
+            GlStateManager.disableLighting();
+        
             GlStateManager.popMatrix();
         }
     }
@@ -1460,24 +1471,26 @@ private double getAimAngle(Vec3 targetDirection) {
 
             tessellator.draw();
 
-        } finally {
-
-            GlStateManager.color(
-                    1.0F,
-                    1.0F,
-                    1.0F,
-                    1.0F
-            );
-
-            GlStateManager.depthMask(true);
-
-            GlStateManager.enableDepth();
-            GlStateManager.enableTexture2D();
-            GlStateManager.disableBlend();
-            GlStateManager.enableLighting();
-
-            GlStateManager.popMatrix();
-        }
+            } finally {
+                GL11.glLineWidth(1.0F);
+            
+                GlStateManager.color(
+                        1.0F,
+                        1.0F,
+                        1.0F,
+                        1.0F
+                );
+            
+                GlStateManager.depthMask(true);
+                GlStateManager.enableDepth();
+                GlStateManager.enableTexture2D();
+                GlStateManager.disableBlend();
+            
+                // RenderWorldLast 結束後不要強制打開 lighting
+                GlStateManager.disableLighting();
+            
+                GlStateManager.popMatrix();
+            }
     }
 
 
@@ -1489,26 +1502,39 @@ private double getAimAngle(Vec3 targetDirection) {
             int x,
             int y,
             boolean hit) {
-
+    
+        SavedGlState oldState = new SavedGlState();
+    
         GlStateManager.pushMatrix();
-
-        GlStateManager.enableBlend();
-        GlStateManager.enableAlpha();
-
-        float r = hit ? 1.0F : 0.0F;
-        float g = hit ? 0.0F : 1.0F;
-
-        drawCustomCrosshair(
-                x - 7,
-                y - 7,
-                r,
-                g,
-                0
-        );
-
-        GlStateManager.disableBlend();
-
-        GlStateManager.popMatrix();
+    
+        try {
+            GlStateManager.enableTexture2D();
+            GlStateManager.enableBlend();
+            GlStateManager.enableAlpha();
+            GlStateManager.disableLighting();
+    
+            GlStateManager.tryBlendFuncSeparate(
+                    GL11.GL_SRC_ALPHA,
+                    GL11.GL_ONE_MINUS_SRC_ALPHA,
+                    GL11.GL_ONE,
+                    GL11.GL_ZERO
+            );
+    
+            float r = hit ? 1.0F : 0.0F;
+            float g = hit ? 0.0F : 1.0F;
+    
+            drawCustomCrosshair(
+                    x - 7,
+                    y - 7,
+                    r,
+                    g,
+                    0.0F
+            );
+        } finally {
+            GlStateManager.popMatrix();
+    
+            oldState.restore();
+        }
     }
 
 
